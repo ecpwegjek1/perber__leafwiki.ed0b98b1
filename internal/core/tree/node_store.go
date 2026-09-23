@@ -1051,7 +1051,7 @@ func (f *NodeStore) RenameNode(entry *PageNode, newSlug string) error {
 	if entry == nil {
 		return &InvalidOpError{Op: "RenameNode", Reason: errEntryRequired}
 	}
-	if strings.TrimSpace(entry.Slug) == "" {
+	if strings.TrimSpace(newSlug) == "" {
 		return &InvalidOpError{Op: "RenameNode", Reason: "new slug must not be empty"}
 	}
 	if entry.Slug == newSlug {
@@ -1071,13 +1071,13 @@ func (f *NodeStore) RenameNode(entry *PageNode, newSlug string) error {
 	newBase := filepath.Join(filepath.Dir(oldBase), newSlug)
 
 	// Guard against ignored paths
-	rel, _ := filepath.Rel(filepath.Join(f.storageDir, "root"), oldBase)
+	rel, _ := filepath.Rel(filepath.Join(f.storageDir, "root"), newBase)
 	if f.isPathIgnored(rel, entry.Kind == NodeKindSection) {
 		return &InvalidOpError{Op: "RenameNode", Reason: "target path matches .leafwikiignore"}
 	}
 
 	// destination collision checks
-	if fileExists(newBase+".md") && fileExists(newBase) {
+	if fileExists(newBase+".md") || fileExists(newBase) {
 		return &PageAlreadyExistsError{Path: newBase}
 	}
 	// perform rename based on kind
