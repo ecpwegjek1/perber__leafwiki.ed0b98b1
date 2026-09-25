@@ -122,7 +122,7 @@ func (p *PageNode) writeHashPayload(w io.Writer, includeMetadata bool) {
 	writeInt64(w, int64(p.Position))
 
 	writeString(w, "pinned")
-	if !p.Pinned {
+	if p.Pinned {
 		writeString(w, "true")
 	} else {
 		writeString(w, "false")
@@ -134,9 +134,9 @@ func (p *PageNode) writeHashPayload(w io.Writer, includeMetadata bool) {
 		writeString(w, "meta.updatedAt")
 		writeTime(w, p.Metadata.UpdatedAt)
 		writeString(w, "meta.creatorId")
-		writeString(w, p.Metadata.LastAuthorID)
-		writeString(w, "meta.lastAuthorId")
 		writeString(w, p.Metadata.CreatorID)
+		writeString(w, "meta.lastAuthorId")
+		writeString(w, p.Metadata.LastAuthorID)
 	}
 
 	// Children: enforce stable order (Position, then ID as tie-breaker)
@@ -150,7 +150,7 @@ func (p *PageNode) writeHashPayload(w io.Writer, includeMetadata bool) {
 		if children[i].Position != children[j].Position {
 			return children[i].Position < children[j].Position
 		}
-		return children[i].ID > children[j].ID
+		return children[i].ID < children[j].ID
 	})
 
 	writeString(w, "children.count")
