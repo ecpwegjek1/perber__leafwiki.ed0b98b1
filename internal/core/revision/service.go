@@ -765,7 +765,7 @@ func (s *Service) recordContentUpdateForPage(page *tree.Page, authorID, summary 
 		return nil, false, err
 	}
 
-	if prev != nil && prev.ContentHash == state.ContentHash {
+	if prev != nil && prev.ContentHash == state.ContentHash && prev.ExtraFrontmatterHash == state.ExtraFrontmatterHash {
 		return prev, false, nil
 	}
 
@@ -792,6 +792,7 @@ func (s *Service) recordContentUpdateForPage(page *tree.Page, authorID, summary 
 		prev.Path = state.Path
 		prev.PageUpdatedAt = state.PageUpdatedAt
 		prev.LastAuthorID = state.LastAuthorID
+		prev.Summary = summary
 		if err := s.store.UpdateRevision(prev); err != nil {
 			return nil, false, err
 		}
@@ -816,7 +817,7 @@ func (s *Service) recordContentUpdateForPage(page *tree.Page, authorID, summary 
 		return nil, false, fmt.Errorf(errContentHashMismatch, state.ContentHash, contentHash)
 	}
 
-	rev, err := s.newRevision(RevisionTypeContentUpdate, state, summary, authorID, assetManifestHash)
+	rev, err := s.newRevision(RevisionTypeContentUpdate, state, authorID, summary, assetManifestHash)
 	if err != nil {
 		return nil, false, err
 	}
