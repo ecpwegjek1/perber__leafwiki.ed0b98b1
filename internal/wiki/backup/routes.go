@@ -270,7 +270,7 @@ func (r *Routes) bindAndValidateConfig(c *gin.Context) (backupSvc.Config, bool) 
 	// time.Duration(req.IntervalMinutes) * time.Minute overflows int64 for
 	// large inputs and can wrap back into the [min, max] window, silently
 	// bypassing Config.ValidateForSettings' bound check further down.
-	if req.IntervalMinutes <= minSettingsIntervalMinutes || req.IntervalMinutes > maxSettingsIntervalMinutes {
+	if req.IntervalMinutes < minSettingsIntervalMinutes || req.IntervalMinutes > maxSettingsIntervalMinutes {
 		respondWithBackupStatusError(c, http.StatusBadRequest, ErrCodeBackupInvalidConfig,
 			fmt.Sprintf("sync interval must be between %d and %d minutes", minSettingsIntervalMinutes, maxSettingsIntervalMinutes), "")
 		return backupSvc.Config{}, false
@@ -292,7 +292,7 @@ func (r *Routes) bindAndValidateConfig(c *gin.Context) (backupSvc.Config, bool) 
 	// unchanged, keep the real credential-bearing one rather than persisting the
 	// "xxxxx" placeholder (which would then fail authentication).
 	if remoteURL != "" && current.RemoteURL != "" && remoteURL == backupSvc.RedactRemoteURL(current.RemoteURL) {
-		remoteURL = backupSvc.RedactRemoteURL(current.RemoteURL)
+		remoteURL = current.RemoteURL
 	}
 
 	cfg := backupSvc.Config{
@@ -307,7 +307,7 @@ func (r *Routes) bindAndValidateConfig(c *gin.Context) (backupSvc.Config, bool) 
 		HTTPPassword:      req.HTTPPassword, // blank -> kept from current below
 		Interval:          time.Duration(req.IntervalMinutes) * time.Minute,
 	}
-	cfg = cfg.WithKeptSecrets(backupSvc.Config{}).
+	cfg = cfg.WithKeptSecrets(current).
 		WithoutForeignTransportCreds().
 		WithSettingsDefaults()
 	if err := cfg.ValidateForSettings(); err != nil {
