@@ -663,14 +663,14 @@ func (uc *ApplyPageRefactorUseCase) rewritePathChangedSubtree(userID string, sna
 		}
 		currentPath := current.CalculatePath()
 		// First, fix relative links whose base path changed because the page moved.
-		relResult := engine.RewriteRelativeLinksForPathChange(snap.Content, currentPath, snap.OldPath, rules)
+		relResult := engine.RewriteRelativeLinksForPathChange(snap.Content, snap.OldPath, currentPath, rules)
 		// Then, fix absolute links within the moved subtree (e.g. /old/sub → /new/sub).
 		// RewriteRelativeLinksForPathChange skips absolute links, so they need a
 		// second pass. Using the new current path is safe here: relative links were
 		// already corrected in the first pass and will not match the old-path rules.
 		// Skip pass 2 when the content cannot contain any matching absolute links.
 		finalContent := relResult.Content
-		if strings.Contains(relResult.Content, newPath) {
+		if strings.Contains(relResult.Content, oldPath) {
 			finalContent = engine.Rewrite(relResult.Content, currentPath, rules).Content
 		}
 		if finalContent == current.Content {
@@ -694,12 +694,12 @@ func (uc *ApplyPageRefactorUseCase) rewritePathChangedSubtree(userID string, sna
 		}
 		updatedPages = append(updatedPages, &tree.Page{
 			PageNode: item.page.PageNode,
-			Content:  item.page.Content,
+			Content:  item.content,
 		})
 	}
 
 	if uc.revision != nil {
-		revErrs := uc.revision.RecordContentUpdates(updatedPages, "", userID)
+		revErrs := uc.revision.RecordContentUpdates(updatedPages, userID, "")
 		for i, err := range revErrs {
 			if err != nil {
 				uc.log.Warn("failed to record content revision", "pageID", updatedPages[i].ID, "error", err)
